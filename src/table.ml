@@ -73,6 +73,7 @@ module Make (Row_id : Id) (Column_id : Id) (Sort_spec : Sort_spec) = struct
       }
   end
 
+
   module Row_node_spec = Row_node_spec
 
   module Visibility_info = struct
@@ -181,17 +182,17 @@ module Make (Row_id : Id) (Column_id : Id) (Sort_spec : Sort_spec) = struct
   module Row_view = Partial_render_list.Make(Row_id)(Key)
 
   module Model = struct
-    type t = { id: Table_id.t (* To avoid DOM id collisions. Never changes. *)
-             (* Settings from client. Never change *)
+    type t = { id: Table_id.t (** To avoid DOM id collisions. Never changes. *)
+             (** Settings from client. Never change *)
              ; float_header: Float_type.t
              ; float_first_col: Float_type.t
              ; scroll_margin: Margin.t
              ; scroll_region : Scroll_region.Id.t
-             (* UI state. Changed by user during app usage *)
+             (** UI state. Changed by user during app usage *)
              ; focus_row: Row_id.t option
              ; focus_col: Column_id.t option
              ; sort_criteria: Base_sort_criteria.t
-             (* Info measured from render. Changes each render. *)
+             (** Info measured from render. Changes each render. *)
              ; height_cache: Row_view.Height_cache.t
              ; visibility_info: Visibility_info.t option
              ; col_group_row_height: int
@@ -631,42 +632,28 @@ module Make (Row_id : Id) (Column_id : Id) (Sort_spec : Sort_spec) = struct
       Scroll_result.combine row_scroll col_scroll
     ;;
 
-    let page_focus_row_offset_and_focus_key (m : Model.t) (t : _ t) ~(dir : Focus_dir.t) =
-      let open Option.Let_syntax in
-      let%bind visibility_info = m.visibility_info and focus_row = m.focus_row in
-      let%map focus_key = current_key t ~row_id:focus_row in
-      let focus_height =
-        Row_view.Height_cache.height m.height_cache (Key.row_id focus_key)
-      in
-      let scroll_height = Js_misc.Rect.float_height visibility_info.view_rect in
-      let top_margin_offset = get_top_margin_offset m in
-      let mult =
-        match dir with
-        | Prev -> -1.
-        | Next -> 1.
-      in
-      let offset = mult *. (scroll_height -. focus_height -. top_margin_offset) in
-      offset, focus_key
-
     let page_focus_row (m : Model.t) (t : _ t) ~(dir : Focus_dir.t) =
       let open Option.Let_syntax in
       let new_focus_row =
-        let%bind offset, focus_key = page_focus_row_offset_and_focus_key m t ~dir in
+        let%bind visibility_info = m.visibility_info and focus_row = m.focus_row in
+        let%bind focus_key = current_key t ~row_id:focus_row in
+        let focus_height =
+          Row_view.Height_cache.height m.height_cache (Key.row_id focus_key)
+        in
+        let scroll_height = Js_misc.Rect.float_height visibility_info.view_rect in
+        let top_margin_offset = get_top_margin_offset m in
+        let mult =
+          match dir with
+          | Prev -> -1.
+          | Next -> 1.
+        in
+        let offset = mult *. (scroll_height -. focus_height -. top_margin_offset) in
         Row_view.find_by_relative_position t.row_view focus_key ~offset
       in
       match new_focus_row with
       | None -> m
       | Some row -> set_focus_row m (Some (Key.row_id row))
     ;;
-
-    let page_focus_row_target_position (m : Model.t) (t : _ t) ~(dir : Focus_dir.t) =
-      let open Option.Let_syntax in
-      let%map measurements      = Row_view.measurements t.row_view
-      and     offset, focus_key = page_focus_row_offset_and_focus_key m t ~dir
-      in
-      let top_of_table = measurements.list_rect.top in
-      let pos_in_table = Row_view.focus_offset_to_position t.row_view focus_key ~offset in
-      top_of_table +. pos_in_table
 
     let focus_is_in_scroll_region ?scroll_margin (m : Model.t) (t : _ t) =
       let row = Option.bind m.focus_row ~f:(row_is_in_scroll_region ?scroll_margin m t) in
@@ -786,9 +773,7 @@ module Make (Row_id : Id) (Column_id : Id) (Sort_spec : Sort_spec) = struct
         | Window -> Js_misc.Rect.map (Js_misc.client_rect ()) ~f:Float.of_int
         | Element el -> Js_misc.client_rect_of_element el
       in
-      { Visibility_info.tbody_rect = Js_misc.client_rect_of_element tbody
-      ; view_rect
-      }
+      { Visibility_info.tbody_rect = Js_misc.client_rect_of_element tbody; view_rect }
 
   end
 
@@ -1035,10 +1020,10 @@ module Make (Row_id : Id) (Column_id : Id) (Sort_spec : Sort_spec) = struct
           |> List.mapi ~f:(fun i (cell_html_id, { Row_node_spec.Cell. attrs; node }) ->
             let sticky_style = if i = 0 then sticky_style else non_sticky_style in
             let attrs =
-              [ Attr.style sticky_style
-              ; Attr.id cell_html_id
-              ] @ attrs
-              |> Attrs.merge_classes_and_styles
+              attrs
+              @ [ Attr.style (Css_gen.concat [sticky_style])
+                ; Attr.id cell_html_id
+                ]
             in
             Node.td attrs [ node ]
           )
@@ -1141,7 +1126,7 @@ module Default_sort_spec = struct
     type t =
       | String of string
       | Float of float
-      | Integer of Int63.t
+      | Integer of int
       | Null
     [@@deriving compare, sexp]
   end
@@ -1182,7 +1167,7 @@ module Default_sort_spec = struct
 
   let compare_keys dir k1 k2 =
     match (k1 : Sort_key.t), (k2 : Sort_key.t) with
-    (* Always sort nulls last regardless of the sort direction *)
+    (** Always sort nulls last regardless of the sort direction *)
     | Null, _ | _, Null -> Sort_key.compare k1 k2
     | _, _ -> Sort_key.compare k1 k2 * Sort_dir.sign dir
 

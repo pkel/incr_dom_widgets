@@ -13,7 +13,7 @@ module Default_sort_spec : sig
     type t =
       | String of string
       | Float of float
-      | Integer of Int63.t
+      | Integer of int
       | Null
     [@@deriving compare, sexp]
 

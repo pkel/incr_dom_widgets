@@ -127,16 +127,16 @@ module type S = sig
     type 'a t
 
     val create
-      :  ?group:string
       (** optionally render a row above the headers with their group names (similar to
           catalog). columns with the same group must be adjacent to be grouped together *)
-      -> ?sort_by:(Row_id.t -> 'a -> Sort_key.t)
+      :  ?group:string
       (** used to extract a sortable value for this column from a row. *)
-      -> ?header_style:Css_gen.t
+      -> ?sort_by:(Row_id.t -> 'a -> Sort_key.t)
       (** Added to the style attribuate of the th node *)
-      -> header:Vdom.Node.t
+      -> ?header_style:Css_gen.t
       (** rendered at the top of the column.
           this node is wrapped in a <th> node with other attributes *)
+      -> header:Vdom.Node.t
       -> unit
       -> 'a t
 
@@ -174,25 +174,25 @@ module type S = sig
     type t [@@deriving compare, sexp_of]
 
     val create
-      :  scroll_margin:Margin.t
       (** How far scroll_to and focus moving should keep the row from the [scroll_region] edge *)
-      -> scroll_region:Scroll_region.Id.t
+      :  scroll_margin:Margin.t
       (** Element to scroll in scroll_to and focus moves *)
-      -> float_header:Float_type.t
+      -> scroll_region:Scroll_region.Id.t
       (** Whether to float the table header fixed to the top or to a specified position on
           scrolling *)
+      -> float_header:Float_type.t
       -> float_first_col:Float_type.t
-      -> height_guess:float
       (** Estimated height of a normal row *)
-      -> ?id:Table_id.t
+      -> height_guess:float
       (** Id of the table.  This must be a fresh id - one that has not been passed to
           [Model.create] before - or behavior is undefined.  It maybe be useful to provide
           your own id here if you need access to the id before you create its associated
           [Model.t]. *)
-      -> ?initial_sort:Base_sort_criteria.t
+      -> ?id:Table_id.t
       (** The column and sort direction that the table should be (initially) sorted by.
           Sorting can be changed later via clicking on column headers. If [initial_sort]
           is not specified, then the table is sorted by [Row_id]. *)
+      -> ?initial_sort:Base_sort_criteria.t
       -> ?initial_focus_row:Row_id.t
       -> ?initial_focus_col:Column_id.t
       -> unit
@@ -335,7 +335,6 @@ module type S = sig
       -> _ t
       -> bool option
 
-
     val get_focus_position
       : Model.t
       -> _ t
@@ -366,12 +365,6 @@ module type S = sig
       -> _ t
       -> float
       -> [ `Before | `At of Column_id.t | `After ] option
-
-    (** Returns the vertical position one page away from the current focus (above for [dir
-        = Prev] or below for [dir = Next]). This can be used to implementing a
-        [page_focus_row] function in multi-table pages. Note that the position returned is
-        relative to the top of the page, not the top of the table. *)
-    val page_focus_row_target_position : Model.t -> _ t -> dir:Focus_dir.t -> float option
   end
 
   val set_focus_row : Model.t -> Row_id.t option -> Model.t
